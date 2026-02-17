@@ -398,7 +398,7 @@ def send_result_email(worker: LiveWorker):
                     <tr><td style="padding: 10px 14px; color: #888;">데이터 포인트</td><td style="padding: 10px 14px; color: #fff; text-align: right;">{len(worker.history)}회</td></tr>
                 </table>
 
-                <p style="color: #444; font-size: 11px; text-align: center; margin-top: 24px;">YouTube Live Tracker</p>
+                <p style="color: #444; font-size: 11px; text-align: center; margin-top: 24px;">Built by DayFocusLab</p>
             </div>
         </div>
         """
