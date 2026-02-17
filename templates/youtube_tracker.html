@@ -3,386 +3,400 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YouTube 라이브 동접 추적기</title>
+  <title>Live Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f0f0f;
+      background: #0a0a0a;
       color: #e1e1e1;
       min-height: 100vh;
     }
 
     .container {
-      max-width: 800px;
+      max-width: 680px;
       margin: 0 auto;
-      padding: 20px;
+      padding: 16px;
     }
 
-    /* 헤더 */
+    /* ── 헤더 ── */
     .header {
       text-align: center;
-      padding: 40px 0 30px;
+      padding: 32px 0 24px;
     }
     .header h1 {
-      font-size: 28px;
+      font-size: 20px;
       font-weight: 700;
       color: #fff;
-      margin-bottom: 8px;
+      letter-spacing: -0.5px;
     }
+    .header h1 span { color: #ff4444; }
     .header p {
-      color: #aaa;
-      font-size: 14px;
+      color: #555;
+      font-size: 13px;
+      margin-top: 4px;
     }
 
-    /* 입력 폼 */
-    .input-area {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 30px;
+    /* ── 입력 ── */
+    .input-group {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
     }
-    .input-area input {
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .input-row input {
       flex: 1;
-      padding: 14px 18px;
-      border-radius: 12px;
-      border: 2px solid #333;
-      background: #1a1a1a;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #0a0a0a;
       color: #fff;
-      font-size: 16px;
+      font-size: 14px;
       outline: none;
       transition: border-color 0.2s;
     }
-    .input-area input:focus {
-      border-color: #ff4444;
+    .input-row input:focus { border-color: #ff4444; }
+    .input-row input::placeholder { color: #444; }
+    .email-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
     }
-    .input-area input::placeholder {
-      color: #666;
+    .email-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #0a0a0a;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
     }
+    .email-row input::placeholder { color: #383838; }
     .btn {
-      padding: 14px 28px;
-      border-radius: 12px;
+      padding: 12px 22px;
+      border-radius: 10px;
       border: none;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
+      white-space: nowrap;
     }
-    .btn-start {
-      background: #ff4444;
-      color: #fff;
-    }
-    .btn-start:hover { background: #ff2222; }
-    .btn-start:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
-    .btn-stop {
-      background: #333;
-      color: #fff;
-    }
-    .btn-stop:hover { background: #444; }
+    .btn-start { background: #ff4444; color: #fff; }
+    .btn-start:hover { background: #e83333; transform: scale(1.02); }
+    .btn-start:disabled { background: #333; color: #666; cursor: not-allowed; transform: none; }
+    .btn-stop { background: #222; color: #999; font-size: 13px; padding: 8px 16px; }
+    .btn-stop:hover { background: #2a2a2a; color: #fff; }
 
-    /* 상태 영역 */
+    /* ── 트래커 ── */
     .tracker { display: none; }
     .tracker.active { display: block; }
 
-    /* 비디오 정보 */
+    /* ── 비디오 정보 ── */
     .video-info {
       display: flex;
-      gap: 16px;
-      background: #1a1a1a;
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 20px;
+      gap: 12px;
+      background: #141414;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
       align-items: center;
     }
     .video-info img {
-      width: 160px;
-      height: 90px;
+      width: 120px;
+      height: 68px;
       border-radius: 8px;
       object-fit: cover;
-      background: #333;
+      background: #222;
+      flex-shrink: 0;
     }
+    .video-meta { min-width: 0; }
     .video-meta h3 {
-      font-size: 16px;
+      font-size: 14px;
       color: #fff;
-      margin-bottom: 4px;
-      line-height: 1.3;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .video-meta .channel-name {
-      color: #aaa;
-      font-size: 13px;
-    }
-
-    /* 상태 배지 */
-    .status-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 20px;
+      color: #666;
       font-size: 12px;
-      font-weight: 600;
-      margin-top: 8px;
+      margin-top: 2px;
     }
-    .status-waiting { background: #333; color: #ffa500; }
-    .status-live { background: #ff0000; color: #fff; animation: pulse 2s infinite; }
-    .status-ended { background: #333; color: #888; }
-    .status-error { background: #442222; color: #ff6666; }
-
-    @keyframes pulse {
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+    .badge-waiting { background: #2a2200; color: #ffa500; }
+    .badge-live { background: #ff0000; color: #fff; animation: livePulse 1.5s ease-in-out infinite; }
+    .badge-ended { background: #1a1a1a; color: #666; }
+    .badge-error { background: #2a1111; color: #ff6666; }
+    @keyframes livePulse {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+      50% { opacity: 0.6; }
     }
 
-    /* 큰 숫자 카드 */
-    .stats {
+    /* ── 통계 ── */
+    .stats-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
+      gap: 10px;
+      margin-bottom: 12px;
     }
-    .stat-card {
-      background: #1a1a1a;
-      border-radius: 16px;
-      padding: 24px;
+    .stat {
+      background: #141414;
+      border-radius: 12px;
+      padding: 16px;
       text-align: center;
     }
-    .stat-card .label {
+    .stat .val {
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+    .stat .lbl {
+      font-size: 11px;
+      color: #555;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stat.peak .val { color: #ff4444; }
+    .stat .time-sub {
+      font-size: 11px;
+      color: #333;
+      margin-top: 2px;
+    }
+
+    /* ── 차트 ── */
+    .chart-wrap {
+      background: #141414;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .chart-wrap canvas {
+      width: 100% !important;
+      height: 140px !important;
+    }
+
+    /* ── 로그 (접이식) ── */
+    .log-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #141414;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .log-toggle:hover { background: #1a1a1a; }
+    .log-toggle span { font-size: 13px; color: #555; }
+    .log-toggle .arrow { color: #444; font-size: 12px; transition: transform 0.2s; }
+    .log-toggle.open .arrow { transform: rotate(180deg); }
+    .log-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .log-body.open {
+      max-height: 300px;
+    }
+    .log-list {
+      background: #111;
+      border-radius: 0 0 12px 12px;
+      padding: 12px 16px;
+      margin-top: -12px;
+      margin-bottom: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+      font-size: 12px;
+      line-height: 2;
+      color: #555;
+    }
+    .log-list::-webkit-scrollbar { width: 4px; }
+    .log-list::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+    .log-entry.peak { color: #ff4444; }
+
+    /* ── 이메일 배지 ── */
+    .email-badge {
+      text-align: center;
+      padding: 10px;
+      background: #0d1f0d;
+      border: 1px solid #1a3a1a;
+      border-radius: 10px;
+      color: #4caf50;
       font-size: 13px;
-      color: #888;
+      margin-bottom: 12px;
+    }
+
+    /* ── 메시지 ── */
+    .message {
+      text-align: center;
+      padding: 30px 20px;
+      color: #444;
+      font-size: 14px;
+    }
+    .message .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #333;
+      border-top-color: #ff4444;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 액션 바 ── */
+    .action-bar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    /* ── 히스토리 ── */
+    .history-section { margin-top: 24px; }
+    .history-section h3 {
+      font-size: 13px;
+      color: #444;
       margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
-    .stat-card .number {
-      font-size: 42px;
-      font-weight: 800;
-      color: #fff;
-    }
-    .stat-card .sub {
-      font-size: 12px;
-      color: #666;
-      margin-top: 4px;
-    }
-    .stat-card.highlight .number {
-      color: #ff4444;
-    }
-
-    /* 차트 */
-    .chart-area {
-      background: #1a1a1a;
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .chart-area h4 {
-      font-size: 14px;
-      color: #888;
-      margin-bottom: 12px;
-    }
-
-    /* 로그 */
-    .log-area {
-      background: #1a1a1a;
-      border-radius: 16px;
-      padding: 16px;
-    }
-    .log-area h4 {
-      font-size: 14px;
-      color: #888;
-      margin-bottom: 10px;
-    }
-    .log-list {
-      max-height: 200px;
-      overflow-y: auto;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 13px;
-      line-height: 1.8;
-      color: #aaa;
-    }
-    .log-list::-webkit-scrollbar { width: 6px; }
-    .log-list::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-
-    /* 이메일 */
-    .email-area {
-      margin: -20px 0 24px;
-    }
-    .email-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: #1a1a1a;
-      border: 2px solid #333;
-      border-radius: 12px;
-      padding: 4px 4px 4px 14px;
-    }
-    .email-icon { font-size: 18px; color: #666; }
-    .email-row input {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      color: #fff;
-      font-size: 15px;
-      outline: none;
-    }
-    .email-row input::placeholder { color: #555; }
-    .email-hint {
-      font-size: 12px;
-      color: #555;
-      margin-top: 6px;
-      padding-left: 4px;
-    }
-    .email-sent-badge {
-      display: inline-block;
-      background: #1a3a1a;
-      color: #4caf50;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-top: 12px;
-    }
-
-    /* 최근 기록 */
-    .history-section {
-      margin-top: 40px;
-    }
-    .history-section h3 {
-      font-size: 16px;
-      color: #888;
-      margin-bottom: 12px;
-    }
-    .history-item {
+    .hi {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #1a1a1a;
-      border-radius: 12px;
-      padding: 14px 18px;
-      margin-bottom: 8px;
+      background: #141414;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 6px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.15s;
     }
-    .history-item:hover { background: #222; }
-    .history-item .hi-title {
-      color: #ddd;
-      font-size: 14px;
-      flex: 1;
+    .hi:hover { background: #1a1a1a; }
+    .hi-left { min-width: 0; flex: 1; }
+    .hi-title {
+      font-size: 13px;
+      color: #ccc;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-right: 12px;
     }
-    .history-item .hi-channel {
-      color: #666;
-      font-size: 12px;
+    .hi-sub { font-size: 11px; color: #444; margin-top: 2px; }
+    .hi-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .hi-num { font-size: 14px; font-weight: 700; color: #ff4444; }
+    .hi-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
     }
-    .history-item .hi-viewers {
-      color: #ff4444;
-      font-weight: 700;
-      font-size: 15px;
-      white-space: nowrap;
-    }
-    .history-item .hi-status {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      margin-left: 10px;
-    }
-    .hi-status-ended { background: #333; color: #888; }
-    .hi-status-live { background: #ff0000; color: #fff; }
-    .hi-status-waiting { background: #333; color: #ffa500; }
+    .hi-badge-live { background: #ff0000; color: #fff; }
+    .hi-badge-ended { background: #1a1a1a; color: #555; }
+    .hi-badge-waiting { background: #2a2200; color: #ffa500; }
 
-    .message {
-      text-align: center;
-      padding: 40px;
-      color: #888;
-      font-size: 15px;
-    }
-
-    /* 모바일 */
-    @media (max-width: 600px) {
-      .input-area { flex-direction: column; }
-      .video-info { flex-direction: column; align-items: flex-start; }
-      .video-info img { width: 100%; height: auto; }
-      .stat-card .number { font-size: 32px; }
+    /* ── 모바일 ── */
+    @media (max-width: 500px) {
+      .container { padding: 12px; }
+      .input-row { flex-direction: column; }
+      .stat .val { font-size: 28px; }
+      .video-info img { width: 80px; height: 45px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>YouTube Live Tracker</h1>
-      <p>라이브 링크를 넣으면 최대 동접자를 추적합니다</p>
+      <h1><span>Live</span> Tracker</h1>
+      <p>YouTube 라이브 동접자 추적</p>
     </div>
 
-    <div class="input-area">
-      <input type="text" id="urlInput" placeholder="YouTube 라이브 URL 붙여넣기..." />
-      <button class="btn btn-start" id="startBtn" onclick="startTracking()">추적 시작</button>
-    </div>
-
-    <div class="email-area" id="emailArea" style="display:none">
-      <div class="email-row">
-        <span class="email-icon">&#9993;</span>
-        <input type="email" id="emailInput" placeholder="결과 받을 이메일 (선택사항)" />
+    <div class="input-group">
+      <div class="input-row">
+        <input type="text" id="urlInput" placeholder="YouTube 라이브 URL" />
+        <button class="btn btn-start" id="startBtn" onclick="startTracking()">추적</button>
       </div>
-      <div class="email-hint">라이브 종료 시 결과를 이메일로 보내드립니다</div>
+      <div class="email-row" id="emailArea" style="display:none">
+        <input type="email" id="emailInput" placeholder="결과 받을 이메일 (선택)" />
+      </div>
     </div>
 
     <div class="tracker" id="tracker">
-      <!-- 비디오 정보 -->
       <div class="video-info" id="videoInfo" style="display:none">
         <img id="thumbnail" src="" alt="" />
         <div class="video-meta">
           <h3 id="videoTitle">-</h3>
           <div class="channel-name" id="channelName">-</div>
-          <span class="status-badge status-waiting" id="statusBadge">대기 중</span>
+          <span class="badge badge-waiting" id="statusBadge">WAITING</span>
         </div>
       </div>
 
-      <!-- 메시지 -->
-      <div class="message" id="statusMessage">연결 중...</div>
+      <div class="message" id="statusMessage"><span class="spinner"></span>연결 중...</div>
 
-      <!-- 통계 카드 -->
-      <div class="stats" id="statsArea" style="display:none">
-        <div class="stat-card">
-          <div class="label">현재 시청자</div>
-          <div class="number" id="currentViewers">0</div>
-          <div class="sub">명</div>
+      <div class="stats-row" id="statsArea" style="display:none">
+        <div class="stat">
+          <div class="val" id="currentViewers">0</div>
+          <div class="lbl">현재</div>
         </div>
-        <div class="stat-card highlight">
-          <div class="label">최대 동접</div>
-          <div class="number" id="maxViewers">0</div>
-          <div class="sub" id="maxTime">-</div>
+        <div class="stat peak">
+          <div class="val" id="maxViewers">0</div>
+          <div class="lbl">최대 동접</div>
+          <div class="time-sub" id="maxTime"></div>
         </div>
       </div>
 
-      <!-- 차트 -->
-      <div class="chart-area" id="chartArea" style="display:none">
-        <h4>동접자 추이</h4>
-        <canvas id="viewerChart" height="200"></canvas>
+      <div class="chart-wrap" id="chartArea" style="display:none">
+        <canvas id="viewerChart"></canvas>
       </div>
 
-      <!-- 로그 -->
-      <div class="log-area" id="logArea" style="display:none">
-        <h4>추적 로그</h4>
-        <div class="log-list" id="logList"></div>
+      <div id="logWrap" style="display:none">
+        <div class="log-toggle" id="logToggle" onclick="toggleLog()">
+          <span>추적 로그</span>
+          <span class="arrow">&#9660;</span>
+        </div>
+        <div class="log-body" id="logBody">
+          <div class="log-list" id="logList"></div>
+        </div>
       </div>
 
-      <!-- 이메일 발송 결과 -->
-      <div id="emailSentBadge" class="email-sent-badge" style="display:none; text-align:center">
+      <div id="emailSentBadge" class="email-badge" style="display:none">
         &#10003; 결과가 이메일로 발송되었습니다
       </div>
 
-      <!-- 중단 버튼 -->
-      <div style="text-align:center; margin-top:20px">
-        <button class="btn btn-stop" id="stopBtn" onclick="stopTracking()" style="display:none">추적 중단</button>
+      <div class="action-bar" id="actionBar" style="display:none">
+        <button class="btn btn-stop" id="stopBtn" onclick="stopTracking()">추적 중단</button>
       </div>
     </div>
-    <!-- 최근 기록 -->
+
     <div class="history-section" id="historySection" style="display:none">
-      <h3>최근 추적 기록</h3>
+      <h3>최근 기록</h3>
       <div id="historyList"></div>
     </div>
   </div>
@@ -393,24 +407,30 @@
     let chart = null;
     let prevHistoryLen = 0;
 
-    // 이메일 기능 사용 가능 여부 확인
-    fetch('/api/email-available').then(r => r.json()).then(data => {
-      if (data.available) {
-        document.getElementById('emailArea').style.display = 'block';
-      }
+    fetch('/api/email-available').then(r => r.json()).then(d => {
+      if (d.available) document.getElementById('emailArea').style.display = 'flex';
     });
 
     function startTracking() {
       const url = document.getElementById('urlInput').value.trim();
-      if (!url) { alert('YouTube URL을 입력해주세요'); return; }
-
+      if (!url) return;
       const email = document.getElementById('emailInput')?.value.trim() || '';
 
       document.getElementById('startBtn').disabled = true;
-      document.getElementById('startBtn').textContent = '연결 중...';
+      document.getElementById('startBtn').textContent = '...';
       document.getElementById('tracker').classList.add('active');
-      document.getElementById('statusMessage').textContent = '영상 정보 확인 중...';
+      document.getElementById('statusMessage').innerHTML = '<span class="spinner"></span>영상 확인 중...';
       document.getElementById('statusMessage').style.display = 'block';
+      document.getElementById('historySection').style.display = 'none';
+
+      // reset
+      if (chart) { chart.destroy(); chart = null; }
+      prevHistoryLen = 0;
+      document.getElementById('videoInfo').style.display = 'none';
+      document.getElementById('statsArea').style.display = 'none';
+      document.getElementById('chartArea').style.display = 'none';
+      document.getElementById('logWrap').style.display = 'none';
+      document.getElementById('emailSentBadge').style.display = 'none';
 
       fetch('/api/start', {
         method: 'POST',
@@ -419,111 +439,97 @@
       })
       .then(r => r.json())
       .then(data => {
-        if (data.error) {
-          alert(data.error);
-          resetUI();
-          return;
-        }
+        if (data.error) { alert(data.error); resetUI(); return; }
         sessionId = data.session_id;
-        document.getElementById('stopBtn').style.display = 'inline-block';
+        document.getElementById('actionBar').style.display = 'flex';
         connectSSE();
       })
-      .catch(() => {
-        alert('서버 연결 실패');
-        resetUI();
-      });
+      .catch(() => { alert('서버 연결 실패'); resetUI(); });
     }
 
     function connectSSE() {
+      if (eventSource) eventSource.close();
       eventSource = new EventSource(`/api/stream/${sessionId}`);
-
       eventSource.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.error) { resetUI(); return; }
-        updateUI(data);
+        const d = JSON.parse(e.data);
+        if (d.error) { resetUI(); return; }
+        updateUI(d);
       };
-
       eventSource.onerror = () => {
-        // SSE 연결 끊기면 마지막 상태 fetch
         eventSource.close();
-        if (sessionId) {
-          fetch(`/api/status/${sessionId}`).then(r => r.json()).then(updateUI);
-        }
+        if (sessionId) fetch(`/api/status/${sessionId}`).then(r => r.json()).then(updateUI);
       };
     }
 
-    function updateUI(data) {
-      // 비디오 정보
-      if (data.title) {
+    function updateUI(d) {
+      if (d.title) {
         document.getElementById('videoInfo').style.display = 'flex';
-        document.getElementById('videoTitle').textContent = data.title;
-        document.getElementById('channelName').textContent = data.channel;
-        if (data.thumbnail) {
-          document.getElementById('thumbnail').src = data.thumbnail;
-        }
+        document.getElementById('videoTitle').textContent = d.title;
+        document.getElementById('channelName').textContent = d.channel;
+        if (d.thumbnail) document.getElementById('thumbnail').src = d.thumbnail;
       }
 
-      // 상태 배지
-      const badge = document.getElementById('statusBadge');
-      badge.className = 'status-badge';
-      if (data.status === 'waiting') {
-        badge.classList.add('status-waiting');
-        badge.textContent = '대기 중';
-        document.getElementById('statusMessage').textContent = data.message;
-      } else if (data.status === 'live') {
-        badge.classList.add('status-live');
-        badge.textContent = 'LIVE';
+      const b = document.getElementById('statusBadge');
+      b.className = 'badge';
+      if (d.status === 'waiting') {
+        b.classList.add('badge-waiting'); b.textContent = 'WAITING';
+        document.getElementById('statusMessage').innerHTML = '<span class="spinner"></span>' + d.message;
+      } else if (d.status === 'live') {
+        b.classList.add('badge-live'); b.textContent = 'LIVE';
         document.getElementById('statusMessage').style.display = 'none';
         document.getElementById('statsArea').style.display = 'grid';
         document.getElementById('chartArea').style.display = 'block';
-        document.getElementById('logArea').style.display = 'block';
-      } else if (data.status === 'ended') {
-        badge.classList.add('status-ended');
-        badge.textContent = '종료';
-        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('logWrap').style.display = 'block';
+      } else if (d.status === 'ended') {
+        b.classList.add('badge-ended'); b.textContent = 'ENDED';
+        document.getElementById('actionBar').style.display = 'none';
         document.getElementById('startBtn').disabled = false;
-        document.getElementById('startBtn').textContent = '추적 시작';
+        document.getElementById('startBtn').textContent = '추적';
         document.getElementById('statsArea').style.display = 'grid';
         document.getElementById('chartArea').style.display = 'block';
-        document.getElementById('logArea').style.display = 'block';
-        if (data.email_sent) {
-          document.getElementById('emailSentBadge').style.display = 'block';
-        }
-        if (data.message) {
-          document.getElementById('statusMessage').textContent = data.message;
+        document.getElementById('logWrap').style.display = 'block';
+        if (d.email_sent) document.getElementById('emailSentBadge').style.display = 'block';
+        if (d.message) {
+          document.getElementById('statusMessage').innerHTML = d.message;
           document.getElementById('statusMessage').style.display = 'block';
         }
-      } else if (data.status === 'error') {
-        badge.classList.add('status-error');
-        badge.textContent = '오류';
-        document.getElementById('statusMessage').textContent = data.message;
+        loadHistory();
+      } else if (d.status === 'error') {
+        b.classList.add('badge-error'); b.textContent = 'ERROR';
+        document.getElementById('statusMessage').innerHTML = d.message;
         document.getElementById('statusMessage').style.display = 'block';
-        document.getElementById('stopBtn').style.display = 'none';
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('startBtn').textContent = '추적 시작';
+        document.getElementById('actionBar').style.display = 'none';
+        resetUI();
       }
 
-      // 숫자 업데이트
-      document.getElementById('currentViewers').textContent = data.current_viewers.toLocaleString();
-      document.getElementById('maxViewers').textContent = data.max_viewers.toLocaleString();
-      if (data.max_viewers_time) {
-        document.getElementById('maxTime').textContent = data.max_viewers_time;
+      // 숫자
+      animateNumber('currentViewers', d.current_viewers);
+      animateNumber('maxViewers', d.max_viewers);
+      if (d.max_viewers_time) document.getElementById('maxTime').textContent = d.max_viewers_time;
+
+      // 차트
+      if (d.history && d.history.length > prevHistoryLen) {
+        updateChart(d.history);
+        prevHistoryLen = d.history.length;
       }
 
-      // 차트 업데이트
-      if (data.history && data.history.length > prevHistoryLen) {
-        updateChart(data.history);
-        prevHistoryLen = data.history.length;
-      }
-
-      // 로그 업데이트
-      if (data.history && data.history.length > 0) {
-        const logList = document.getElementById('logList');
-        logList.innerHTML = data.history.slice(-30).reverse().map(h => {
-          const isMax = h.viewers === data.max_viewers && h.time === data.max_viewers_time;
-          return `<div>${h.time} - ${h.viewers.toLocaleString()}명${isMax ? ' 🏆' : ''}</div>`;
+      // 로그
+      if (d.history && d.history.length > 0) {
+        const el = document.getElementById('logList');
+        el.innerHTML = d.history.slice(-40).reverse().map(h => {
+          const cls = (h.viewers === d.max_viewers && h.time === d.max_viewers_time) ? ' peak' : '';
+          return `<div class="log-entry${cls}">${h.time}  ${h.viewers.toLocaleString()}명</div>`;
         }).join('');
       }
+    }
+
+    function animateNumber(id, target) {
+      const el = document.getElementById(id);
+      const current = parseInt(el.textContent.replace(/,/g, '')) || 0;
+      if (current === target) return;
+      el.textContent = target.toLocaleString();
+      el.style.transform = 'scale(1.08)';
+      setTimeout(() => { el.style.transform = 'scale(1)'; }, 200);
     }
 
     function updateChart(history) {
@@ -535,41 +541,56 @@
         chart = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: labels,
+            labels,
             datasets: [{
-              label: '동접자',
               data: values,
               borderColor: '#ff4444',
-              backgroundColor: 'rgba(255, 68, 68, 0.1)',
+              backgroundColor: (ctx) => {
+                const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 140);
+                g.addColorStop(0, 'rgba(255,68,68,0.15)');
+                g.addColorStop(1, 'rgba(255,68,68,0)');
+                return g;
+              },
               fill: true,
-              tension: 0.3,
-              pointRadius: 3,
-              pointBackgroundColor: '#ff4444',
+              tension: 0.4,
+              pointRadius: 0,
+              pointHitRadius: 10,
               borderWidth: 2,
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
             plugins: {
               legend: { display: false },
               tooltip: {
+                backgroundColor: '#222',
+                titleColor: '#888',
+                bodyColor: '#fff',
+                cornerRadius: 8,
+                padding: 10,
+                displayColors: false,
                 callbacks: {
-                  label: (ctx) => `${ctx.parsed.y.toLocaleString()}명`
+                  label: (c) => `${c.parsed.y.toLocaleString()}명`
                 }
               }
             },
             scales: {
               x: {
-                ticks: { color: '#666', maxTicksLimit: 10 },
-                grid: { color: '#222' }
+                ticks: { color: '#333', font: { size: 10 }, maxTicksLimit: 6, maxRotation: 0 },
+                grid: { display: false },
+                border: { display: false }
               },
               y: {
                 ticks: {
-                  color: '#666',
-                  callback: (v) => v.toLocaleString()
+                  color: '#333',
+                  font: { size: 10 },
+                  maxTicksLimit: 4,
+                  callback: (v) => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v
                 },
-                grid: { color: '#222' }
+                grid: { color: '#1a1a1a' },
+                border: { display: false }
               }
             }
           }
@@ -581,47 +602,45 @@
       }
     }
 
+    function toggleLog() {
+      document.getElementById('logToggle').classList.toggle('open');
+      document.getElementById('logBody').classList.toggle('open');
+    }
+
     function stopTracking() {
       if (!sessionId) return;
       fetch(`/api/stop/${sessionId}`, { method: 'POST' });
       if (eventSource) eventSource.close();
-      document.getElementById('stopBtn').style.display = 'none';
-      document.getElementById('startBtn').disabled = false;
-      document.getElementById('startBtn').textContent = '추적 시작';
+      document.getElementById('actionBar').style.display = 'none';
+      resetUI();
     }
 
     function resetUI() {
       document.getElementById('startBtn').disabled = false;
-      document.getElementById('startBtn').textContent = '추적 시작';
+      document.getElementById('startBtn').textContent = '추적';
     }
 
-    // 엔터키로 시작
     document.getElementById('urlInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') startTracking();
     });
 
-    // 최근 기록 로드
     function loadHistory() {
       fetch('/api/history').then(r => r.json()).then(data => {
         if (!data || data.length === 0) return;
         document.getElementById('historySection').style.display = 'block';
-        const list = document.getElementById('historyList');
-        list.innerHTML = data.map(s => {
-          const statusClass = s.status === 'live' ? 'hi-status-live' :
-                              s.status === 'waiting' ? 'hi-status-waiting' : 'hi-status-ended';
-          const statusText = s.status === 'live' ? 'LIVE' :
-                             s.status === 'waiting' ? '대기' : '종료';
-          return `
-            <div class="history-item" onclick="viewSession('${s.id}')">
-              <div>
-                <div class="hi-title">${s.title || s.url}</div>
-                <div class="hi-channel">${s.channel || ''} &middot; ${s.created_at || ''}</div>
-              </div>
-              <div style="display:flex;align-items:center">
-                <span class="hi-viewers">${(s.max_viewers||0).toLocaleString()}명</span>
-                <span class="hi-status ${statusClass}">${statusText}</span>
-              </div>
-            </div>`;
+        document.getElementById('historyList').innerHTML = data.map(s => {
+          const bc = s.status === 'live' ? 'hi-badge-live' : s.status === 'waiting' ? 'hi-badge-waiting' : 'hi-badge-ended';
+          const bt = s.status === 'live' ? 'LIVE' : s.status === 'waiting' ? 'WAIT' : 'END';
+          return `<div class="hi" onclick="viewSession('${s.id}')">
+            <div class="hi-left">
+              <div class="hi-title">${s.title || s.url}</div>
+              <div class="hi-sub">${s.channel || ''} &middot; ${s.created_at || ''}</div>
+            </div>
+            <div class="hi-right">
+              <span class="hi-num">${(s.max_viewers||0).toLocaleString()}</span>
+              <span class="hi-badge ${bc}">${bt}</span>
+            </div>
+          </div>`;
         }).join('');
       });
     }
@@ -630,11 +649,10 @@
     function viewSession(sid) {
       sessionId = sid;
       document.getElementById('tracker').classList.add('active');
-      // 진행 중인 세션이면 SSE, 아니면 한 번만 fetch
-      fetch(`/api/status/${sid}`).then(r => r.json()).then(data => {
-        updateUI(data);
-        if (data.status === 'live' || data.status === 'waiting') {
-          document.getElementById('stopBtn').style.display = 'inline-block';
+      fetch(`/api/status/${sid}`).then(r => r.json()).then(d => {
+        updateUI(d);
+        if (d.status === 'live' || d.status === 'waiting') {
+          document.getElementById('actionBar').style.display = 'flex';
           connectSSE();
         }
       });
