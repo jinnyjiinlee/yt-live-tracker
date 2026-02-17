@@ -134,10 +134,11 @@ def db_get_recent_sessions(limit=20):
 # ── 추적 워커 ─────────────────────────────────────────
 
 class LiveWorker:
-    def __init__(self, session_id, url, email=None):
+    def __init__(self, session_id, url, email=None, interval=30):
         self.session_id = session_id
         self.url = url
         self.email = email
+        self.interval = max(10, min(interval, 600))  # 10초~10분
         self.running = True
         # 실시간 상태 (SSE용)
         self.current_viewers = 0
@@ -179,7 +180,7 @@ class LiveWorker:
         self.running = False
 
     def run(self):
-        poll_interval = 30
+        poll_interval = self.interval
         wait_interval = 60
         consecutive_errors = 0
 
@@ -454,6 +455,7 @@ def start_tracking():
         return jsonify({"error": "유효한 YouTube URL을 입력해주세요"}), 400
 
     email = data.get("email", "").strip() or None
+    interval = int(data.get("interval", 30))
     session_id = str(uuid.uuid4())[:8]
 
     # DB에 세션 생성
@@ -463,7 +465,7 @@ def start_tracking():
     })
 
     # 워커 시작
-    worker = LiveWorker(session_id, url, email)
+    worker = LiveWorker(session_id, url, email, interval=interval)
     active_sessions[session_id] = worker
     thread = threading.Thread(target=worker.run, daemon=True)
     thread.start()

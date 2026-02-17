@@ -64,14 +64,30 @@
     }
     .input-row input:focus { border-color: #ff4444; }
     .input-row input::placeholder { color: #444; }
-    .email-row {
+    .options-row {
       display: flex;
       gap: 8px;
       margin-top: 8px;
     }
-    .email-row input {
+    .options-row select {
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #0a0a0a;
+      color: #999;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .options-row .email-input {
       flex: 1;
-      padding: 10px 14px;
+      padding: 9px 12px;
       border-radius: 10px;
       border: 1px solid #2a2a2a;
       background: #0a0a0a;
@@ -79,7 +95,7 @@
       font-size: 13px;
       outline: none;
     }
-    .email-row input::placeholder { color: #383838; }
+    .options-row .email-input::placeholder { color: #383838; }
     .btn {
       padding: 12px 22px;
       border-radius: 10px;
@@ -191,11 +207,11 @@
       border-radius: 12px;
       padding: 14px;
       margin-bottom: 12px;
-      position: relative;
     }
-    .chart-wrap canvas {
-      width: 100% !important;
-      height: 140px !important;
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 130px;
     }
 
     /* ── 로그 (접이식) ── */
@@ -343,8 +359,15 @@
         <input type="text" id="urlInput" placeholder="YouTube 라이브 URL" />
         <button class="btn btn-start" id="startBtn" onclick="startTracking()">추적</button>
       </div>
-      <div class="email-row" id="emailArea" style="display:none">
-        <input type="email" id="emailInput" placeholder="결과 받을 이메일 (선택)" />
+      <div class="options-row">
+        <select id="intervalSelect">
+          <option value="10">10초</option>
+          <option value="30" selected>30초</option>
+          <option value="60">1분</option>
+          <option value="180">3분</option>
+          <option value="300">5분</option>
+        </select>
+        <input type="email" id="emailInput" class="email-input" placeholder="결과 받을 이메일 (선택)" style="display:none" />
       </div>
     </div>
 
@@ -373,7 +396,9 @@
       </div>
 
       <div class="chart-wrap" id="chartArea" style="display:none">
-        <canvas id="viewerChart"></canvas>
+        <div class="chart-container">
+          <canvas id="viewerChart"></canvas>
+        </div>
       </div>
 
       <div id="logWrap" style="display:none">
@@ -408,13 +433,14 @@
     let prevHistoryLen = 0;
 
     fetch('/api/email-available').then(r => r.json()).then(d => {
-      if (d.available) document.getElementById('emailArea').style.display = 'flex';
+      if (d.available) document.getElementById('emailInput').style.display = 'block';
     });
 
     function startTracking() {
       const url = document.getElementById('urlInput').value.trim();
       if (!url) return;
       const email = document.getElementById('emailInput')?.value.trim() || '';
+      const interval = parseInt(document.getElementById('intervalSelect').value);
 
       document.getElementById('startBtn').disabled = true;
       document.getElementById('startBtn').textContent = '...';
@@ -435,7 +461,7 @@
       fetch('/api/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, email })
+        body: JSON.stringify({ url, email, interval })
       })
       .then(r => r.json())
       .then(data => {
@@ -536,70 +562,73 @@
       const labels = history.map(h => h.time);
       const values = history.map(h => h.viewers);
 
-      if (!chart) {
-        const ctx = document.getElementById('viewerChart').getContext('2d');
-        chart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [{
-              data: values,
-              borderColor: '#ff4444',
-              backgroundColor: (ctx) => {
-                const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 140);
-                g.addColorStop(0, 'rgba(255,68,68,0.15)');
-                g.addColorStop(1, 'rgba(255,68,68,0)');
-                return g;
-              },
-              fill: true,
-              tension: 0.4,
-              pointRadius: 0,
-              pointHitRadius: 10,
-              borderWidth: 2,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                backgroundColor: '#222',
-                titleColor: '#888',
-                bodyColor: '#fff',
-                cornerRadius: 8,
-                padding: 10,
-                displayColors: false,
-                callbacks: {
-                  label: (c) => `${c.parsed.y.toLocaleString()}명`
-                }
-              }
-            },
-            scales: {
-              x: {
-                ticks: { color: '#333', font: { size: 10 }, maxTicksLimit: 6, maxRotation: 0 },
-                grid: { display: false },
-                border: { display: false }
-              },
-              y: {
-                ticks: {
-                  color: '#333',
-                  font: { size: 10 },
-                  maxTicksLimit: 4,
-                  callback: (v) => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v
-                },
-                grid: { color: '#1a1a1a' },
-                border: { display: false }
+      // 차트가 커지는 버그 방지: 매번 destroy 후 재생성
+      if (chart) {
+        chart.destroy();
+        chart = null;
+      }
+
+      const canvas = document.getElementById('viewerChart');
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 0, 130);
+      grad.addColorStop(0, 'rgba(255,68,68,0.12)');
+      grad.addColorStop(1, 'rgba(255,68,68,0)');
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            borderColor: '#ff4444',
+            backgroundColor: grad,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHitRadius: 10,
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          layout: { padding: { top: 4, bottom: 0 } },
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#222',
+              titleColor: '#888',
+              bodyColor: '#fff',
+              cornerRadius: 8,
+              padding: 10,
+              displayColors: false,
+              callbacks: {
+                label: (c) => `${c.parsed.y.toLocaleString()}명`
               }
             }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#333', font: { size: 10 }, maxTicksLimit: 6, maxRotation: 0 },
+              grid: { display: false },
+              border: { display: false }
+            },
+            y: {
+              beginAtZero: false,
+              ticks: {
+                color: '#333',
+                font: { size: 10 },
+                maxTicksLimit: 3,
+                callback: (v) => v >= 1000 ? (v/1000).toFixed(1) + 'k' : v
+              },
+              grid: { color: '#1a1a1a' },
+              border: { display: false }
+            }
           }
-        });
-      } else {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = values;
-        chart.update('none');
-      }
+        }
+      });
     }
 
     function toggleLog() {
