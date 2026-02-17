@@ -295,6 +295,21 @@
       gap: 8px;
       margin-bottom: 16px;
     }
+    .action-bar select {
+      padding: 8px 28px 8px 12px;
+      border-radius: 10px;
+      border: 1px solid #2a2a2a;
+      background: #141414;
+      color: #999;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
 
     /* ── 히스토리 ── */
     .history-section { margin-top: 24px; }
@@ -416,6 +431,13 @@
       </div>
 
       <div class="action-bar" id="actionBar" style="display:none">
+        <select id="liveIntervalSelect" onchange="changeInterval()" title="추적 간격 변경">
+          <option value="10">10초</option>
+          <option value="30" selected>30초</option>
+          <option value="60">1분</option>
+          <option value="180">3분</option>
+          <option value="300">5분</option>
+        </select>
         <button class="btn btn-stop" id="stopBtn" onclick="stopTracking()">추적 중단</button>
       </div>
     </div>
@@ -468,6 +490,7 @@
         if (data.error) { alert(data.error); resetUI(); return; }
         sessionId = data.session_id;
         document.getElementById('actionBar').style.display = 'flex';
+        document.getElementById('liveIntervalSelect').value = interval;
         connectSSE();
       })
       .catch(() => { alert('서버 연결 실패'); resetUI(); });
@@ -634,6 +657,16 @@
     function toggleLog() {
       document.getElementById('logToggle').classList.toggle('open');
       document.getElementById('logBody').classList.toggle('open');
+    }
+
+    function changeInterval() {
+      if (!sessionId) return;
+      const val = document.getElementById('liveIntervalSelect').value;
+      fetch(`/api/interval/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interval: parseInt(val) })
+      });
     }
 
     function stopTracking() {

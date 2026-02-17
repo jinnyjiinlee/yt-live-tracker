@@ -496,6 +496,17 @@ def stop_tracking(session_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/interval/<session_id>", methods=["POST"])
+def change_interval(session_id):
+    worker = active_sessions.get(session_id)
+    if not worker:
+        return jsonify({"error": "진행 중인 세션이 아닙니다"}), 404
+    data = request.get_json()
+    new_interval = int(data.get("interval", 30))
+    worker.interval = max(10, min(new_interval, 600))
+    return jsonify({"ok": True, "interval": worker.interval})
+
+
 @app.route("/api/stream/<session_id>")
 def stream(session_id):
     def generate():
