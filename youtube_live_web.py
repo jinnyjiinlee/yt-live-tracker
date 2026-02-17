@@ -257,6 +257,55 @@ def get_stream_info(url):
         return None
 
 
+def analyze_trends(history):
+    """동접 추이 분석"""
+    if len(history) < 3:
+        return {}
+
+    viewers = [h["viewers"] for h in history]
+    times = [h["time"] for h in history]
+    total = len(viewers)
+    avg = sum(viewers) / total
+    peak_idx = viewers.index(max(viewers))
+
+    # 구간 분석 (전체를 4등분)
+    q = max(total // 4, 1)
+    phases = {
+        "초반": viewers[:q],
+        "중반 전반": viewers[q:q*2],
+        "중반 후반": viewers[q*2:q*3],
+        "후반": viewers[q*3:],
+    }
+    phase_avgs = {k: int(sum(v)/len(v)) if v else 0 for k, v in phases.items()}
+
+    # 피크 이후 하락 시점 찾기
+    decline_start = None
+    if peak_idx < total - 2:
+        # 피크 이후 3연속 감소하는 첫 지점
+        for i in range(peak_idx, min(peak_idx + 20, total - 2)):
+            if viewers[i] > viewers[i+1] > viewers[i+2]:
+                decline_start = times[i]
+                break
+
+    # 급등/급락 감지 (이전 대비 20% 이상 변화)
+    spikes = []
+    for i in range(1, total):
+        if viewers[i-1] == 0:
+            continue
+        change = (viewers[i] - viewers[i-1]) / viewers[i-1] * 100
+        if abs(change) >= 20:
+            direction = "급등" if change > 0 else "급락"
+            spikes.append(f"{times[i]} {direction} ({change:+.0f}%)")
+
+    return {
+        "phase_avgs": phase_avgs,
+        "peak_time": times[peak_idx],
+        "decline_start": decline_start,
+        "spikes": spikes[:5],  # 최대 5개
+        "duration_minutes": total * 0.5,  # 30초 간격 기준
+    }
+
+
 def send_result_email(worker: LiveWorker):
     if not worker.email or not SENDER_EMAIL or not SENDER_PASSWORD:
         return
@@ -265,27 +314,90 @@ def send_result_email(worker: LiveWorker):
         viewers_list = [h["viewers"] for h in worker.history]
         avg_viewers = sum(viewers_list) / len(viewers_list) if viewers_list else 0
         min_viewers = min(viewers_list) if viewers_list else 0
+        analysis = analyze_trends(worker.history)
+
+        # 구간별 평균 HTML
+        phase_html = ""
+        if analysis.get("phase_avgs"):
+            phase_rows = ""
+            for phase, avg_val in analysis["phase_avgs"].items():
+                bar_width = min(int(avg_val / max(worker.max_viewers, 1) * 200), 200)
+                phase_rows += f"""
+                <tr>
+                    <td style="padding: 8px 10px; color: #aaa; font-size: 13px; border-bottom: 1px solid #222; width: 80px;">{phase}</td>
+                    <td style="padding: 8px 10px; border-bottom: 1px solid #222;">
+                        <div style="background: #ff4444; height: 16px; border-radius: 4px; width: {bar_width}px; display: inline-block; vertical-align: middle;"></div>
+                        <span style="color: #fff; font-size: 13px; margin-left: 8px;">{avg_val:,}명</span>
+                    </td>
+                </tr>"""
+            phase_html = f"""
+            <div style="margin: 20px 0;">
+                <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">구간별 평균 시청자</div>
+                <table style="width: 100%; border-collapse: collapse;">{phase_rows}</table>
+            </div>"""
+
+        # 추이 분석 HTML
+        trend_html = ""
+        trend_items = []
+        if analysis.get("decline_start"):
+            trend_items.append(f"<li>{analysis['decline_start']}부터 시청자 감소 시작</li>")
+        if analysis.get("spikes"):
+            for spike in analysis["spikes"]:
+                trend_items.append(f"<li>{spike}</li>")
+        duration = analysis.get("duration_minutes", 0)
+        if duration:
+            hours = int(duration // 60)
+            mins = int(duration % 60)
+            dur_str = f"{hours}시간 {mins}분" if hours else f"{mins}분"
+            trend_items.insert(0, f"<li>총 라이브 시간: {dur_str}</li>")
+
+        if trend_items:
+            trend_html = f"""
+            <div style="margin: 20px 0;">
+                <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">추이 분석</div>
+                <ul style="color: #ccc; font-size: 14px; padding-left: 20px; line-height: 2;">
+                    {''.join(trend_items)}
+                </ul>
+            </div>"""
 
         html = f"""
         <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; background: #1a1a1a; color: #e1e1e1; border-radius: 16px; overflow: hidden;">
             <div style="background: #ff4444; padding: 24px; text-align: center;">
-                <h1 style="margin: 0; color: #fff; font-size: 22px;">YouTube Live Tracker 결과</h1>
+                <h1 style="margin: 0; color: #fff; font-size: 22px;">YouTube Live Tracker 리포트</h1>
             </div>
             <div style="padding: 24px;">
                 <h2 style="color: #fff; font-size: 18px; margin-bottom: 4px;">{worker.title}</h2>
                 <p style="color: #aaa; margin-top: 0;">{worker.channel}</p>
-                <div style="background: #0f0f0f; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
-                    <div style="color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">최대 동접자</div>
-                    <div style="color: #ff4444; font-size: 48px; font-weight: 800;">{worker.max_viewers:,}</div>
-                    <div style="color: #666;">명 ({worker.max_viewers_time})</div>
+
+                <!-- 핵심 지표 -->
+                <div style="display: flex; gap: 12px; margin: 20px 0;">
+                    <div style="flex: 1; background: #0f0f0f; border-radius: 12px; padding: 16px; text-align: center;">
+                        <div style="color: #888; font-size: 11px; text-transform: uppercase;">최대 동접</div>
+                        <div style="color: #ff4444; font-size: 32px; font-weight: 800;">{worker.max_viewers:,}</div>
+                        <div style="color: #555; font-size: 11px;">{worker.max_viewers_time}</div>
+                    </div>
+                    <div style="flex: 1; background: #0f0f0f; border-radius: 12px; padding: 16px; text-align: center;">
+                        <div style="color: #888; font-size: 11px; text-transform: uppercase;">평균 동접</div>
+                        <div style="color: #fff; font-size: 32px; font-weight: 800;">{avg_viewers:,.0f}</div>
+                        <div style="color: #555; font-size: 11px;">전체 평균</div>
+                    </div>
+                    <div style="flex: 1; background: #0f0f0f; border-radius: 12px; padding: 16px; text-align: center;">
+                        <div style="color: #888; font-size: 11px; text-transform: uppercase;">최소 동접</div>
+                        <div style="color: #fff; font-size: 32px; font-weight: 800;">{min_viewers:,}</div>
+                        <div style="color: #555; font-size: 11px;">최저점</div>
+                    </div>
                 </div>
-                <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-                    <tr><td style="padding: 10px; color: #888; border-bottom: 1px solid #333;">평균 동접</td><td style="padding: 10px; color: #fff; text-align: right; border-bottom: 1px solid #333;">{avg_viewers:,.0f}명</td></tr>
-                    <tr><td style="padding: 10px; color: #888; border-bottom: 1px solid #333;">최소 동접</td><td style="padding: 10px; color: #fff; text-align: right; border-bottom: 1px solid #333;">{min_viewers:,}명</td></tr>
-                    <tr><td style="padding: 10px; color: #888; border-bottom: 1px solid #333;">추적 시작</td><td style="padding: 10px; color: #fff; text-align: right; border-bottom: 1px solid #333;">{worker.start_time or '-'}</td></tr>
-                    <tr><td style="padding: 10px; color: #888;">총 체크 횟수</td><td style="padding: 10px; color: #fff; text-align: right;">{len(worker.history)}회</td></tr>
+
+                {phase_html}
+                {trend_html}
+
+                <table style="width: 100%; border-collapse: collapse; margin: 16px 0; background: #0f0f0f; border-radius: 8px; overflow: hidden;">
+                    <tr><td style="padding: 10px 14px; color: #888; border-bottom: 1px solid #222;">추적 시작</td><td style="padding: 10px 14px; color: #fff; text-align: right; border-bottom: 1px solid #222;">{worker.start_time or '-'}</td></tr>
+                    <tr><td style="padding: 10px 14px; color: #888; border-bottom: 1px solid #222;">추적 종료</td><td style="padding: 10px 14px; color: #fff; text-align: right; border-bottom: 1px solid #222;">{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</td></tr>
+                    <tr><td style="padding: 10px 14px; color: #888;">데이터 포인트</td><td style="padding: 10px 14px; color: #fff; text-align: right;">{len(worker.history)}회</td></tr>
                 </table>
-                <p style="color: #666; font-size: 12px; text-align: center; margin-top: 20px;">YouTube Live Tracker</p>
+
+                <p style="color: #444; font-size: 11px; text-align: center; margin-top: 24px;">YouTube Live Tracker</p>
             </div>
         </div>
         """
